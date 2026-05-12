@@ -83,6 +83,7 @@ func NewCommand() *cobra.Command {
 		otlpHeaders                      map[string]string
 		otlpAttrs                        []string
 		applicationNamespaces            []string
+		allowedNamespaces                []string
 		persistResourceHealth            bool
 		shardingAlgorithm                string
 		enableDynamicClusterDistribution bool
@@ -208,6 +209,7 @@ func NewCommand() *cobra.Command {
 				persistResourceHealth,
 				clusterSharding,
 				applicationNamespaces,
+				allowedNamespaces,
 				&workqueueRateLimit,
 				serverSideDiff,
 				enableDynamicClusterDistribution,
@@ -280,6 +282,7 @@ func NewCommand() *cobra.Command {
 	command.Flags().StringToStringVar(&otlpHeaders, "otlp-headers", env.ParseStringToStringFromEnv("ARGOCD_APPLICATION_CONTROLLER_OTLP_HEADERS", map[string]string{}, ","), "List of OpenTelemetry collector extra headers sent with traces, headers are comma-separated key-value pairs(e.g. key1=value1,key2=value2)")
 	command.Flags().StringSliceVar(&otlpAttrs, "otlp-attrs", env.StringsFromEnv("ARGOCD_APPLICATION_CONTROLLER_OTLP_ATTRS", []string{}, ","), "List of OpenTelemetry collector extra attrs when send traces, each attribute is separated by a colon(e.g. key:value)")
 	command.Flags().StringSliceVar(&applicationNamespaces, "application-namespaces", env.StringsFromEnv("ARGOCD_APPLICATION_NAMESPACES", []string{}, ","), "List of additional namespaces that applications are allowed to be reconciled from")
+	command.Flags().StringSliceVar(&allowedNamespaces, "allowed-namespaces", env.StringsFromEnv(common.EnvControllerAllowedNamespaces, []string{}, ","), "List of namespaces that this controller instance should process. When set, only applications in these namespaces will be reconciled, enabling namespace-based sharding across multiple controller instances.")
 	command.Flags().BoolVar(&persistResourceHealth, "persist-resource-health", env.ParseBoolFromEnv("ARGOCD_APPLICATION_CONTROLLER_PERSIST_RESOURCE_HEALTH", true), "Enables storing the managed resources health in the Application CRD")
 	command.Flags().StringVar(&shardingAlgorithm, "sharding-method", env.StringFromEnv(common.EnvControllerShardingAlgorithm, common.DefaultShardingAlgorithm), "Enables choice of sharding method. Supported sharding methods are : [legacy, round-robin, consistent-hashing] ")
 	// global queue rate limit config

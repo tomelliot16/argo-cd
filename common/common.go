@@ -262,6 +262,10 @@ const (
 	EnvControllerShard = "ARGOCD_CONTROLLER_SHARD"
 	// EnvControllerShardingAlgorithm is the distribution sharding algorithm to be used: legacy or round-robin
 	EnvControllerShardingAlgorithm = "ARGOCD_CONTROLLER_SHARDING_ALGORITHM"
+	// EnvControllerAllowedNamespaces is a comma-separated list of namespaces that this controller instance
+	// should process. When set, only applications residing in these namespaces will be reconciled by this
+	// controller instance, enabling namespace-based sharding across multiple controller instances.
+	EnvControllerAllowedNamespaces = "ARGOCD_CONTROLLER_ALLOWED_NAMESPACES"
 	// EnvEnableDynamicClusterDistribution enables dynamic sharding (ALPHA)
 	EnvEnableDynamicClusterDistribution = "ARGOCD_ENABLE_DYNAMIC_CLUSTER_DISTRIBUTION"
 	// EnvEnableGRPCTimeHistogramEnv enables gRPC metrics collection

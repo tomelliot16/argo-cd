@@ -182,6 +182,7 @@ func newFakeControllerWithResync(data *fakeData, appResyncPeriod time.Duration, 
 		true,
 		nil,
 		data.applicationNamespaces,
+		nil, // allowedNamespaces
 		nil,
 		false,
 		false,
@@ -2282,6 +2283,79 @@ func Test_canProcessApp(t *testing.T) {
 		app.Namespace = "bad"
 		canProcess := ctrl.canProcessApp(app)
 		assert.False(t, canProcess)
+	})
+}
+
+func Test_canProcessAppWithAllowedNamespaces(t *testing.T) {
+	app := newFakeApp()
+	ctrl := newFakeController(&fakeData{apps: []runtime.Object{app}}, nil)
+
+	t.Run("no allowed namespaces configured, all namespaces allowed", func(t *testing.T) {
+		ctrl.allowedNamespaces = nil
+		app.Namespace = ctrl.namespace
+		assert.True(t, ctrl.canProcessApp(app))
+	})
+
+	t.Run("allowed namespaces configured, app in allowed namespace", func(t *testing.T) {
+		ctrl.applicationNamespaces = []string{"namespace-a", "namespace-b"}
+		ctrl.allowedNamespaces = []string{"namespace-a", "namespace-b"}
+		app.Namespace = "namespace-a"
+		assert.True(t, ctrl.canProcessApp(app))
+	})
+
+	t.Run("allowed namespaces configured, app in different allowed namespace", func(t *testing.T) {
+		ctrl.applicationNamespaces = []string{"namespace-a", "namespace-b"}
+		ctrl.allowedNamespaces = []string{"namespace-a", "namespace-b"}
+		app.Namespace = "namespace-b"
+		assert.True(t, ctrl.canProcessApp(app))
+	})
+
+	t.Run("allowed namespaces configured, app NOT in allowed namespace", func(t *testing.T) {
+		ctrl.applicationNamespaces = []string{"namespace-a", "namespace-b", "namespace-c"}
+		ctrl.allowedNamespaces = []string{"namespace-a", "namespace-b"}
+		app.Namespace = "namespace-c"
+		assert.False(t, ctrl.canProcessApp(app))
+	})
+
+	t.Run("allowed namespaces with glob pattern matches", func(t *testing.T) {
+		ctrl.allowedNamespaces = []string{"team-*"}
+		app.Namespace = "team-frontend"
+		assert.True(t, ctrl.isAppInAllowedNamespace(app))
+	})
+
+	t.Run("allowed namespaces with glob pattern does not match", func(t *testing.T) {
+		ctrl.allowedNamespaces = []string{"team-*"}
+		app.Namespace = "other-namespace"
+		assert.False(t, ctrl.isAppInAllowedNamespace(app))
+	})
+}
+
+func Test_isAppInAllowedNamespace(t *testing.T) {
+	app := newFakeApp()
+	ctrl := newFakeController(&fakeData{apps: []runtime.Object{app}}, nil)
+
+	t.Run("no allowed namespaces returns true", func(t *testing.T) {
+		ctrl.allowedNamespaces = nil
+		app.Namespace = "any-namespace"
+		assert.True(t, ctrl.isAppInAllowedNamespace(app))
+	})
+
+	t.Run("empty allowed namespaces returns true", func(t *testing.T) {
+		ctrl.allowedNamespaces = []string{}
+		app.Namespace = "any-namespace"
+		assert.True(t, ctrl.isAppInAllowedNamespace(app))
+	})
+
+	t.Run("app in allowed namespace returns true", func(t *testing.T) {
+		ctrl.allowedNamespaces = []string{"ns1", "ns2"}
+		app.Namespace = "ns1"
+		assert.True(t, ctrl.isAppInAllowedNamespace(app))
+	})
+
+	t.Run("app not in allowed namespace returns false", func(t *testing.T) {
+		ctrl.allowedNamespaces = []string{"ns1", "ns2"}
+		app.Namespace = "ns3"
+		assert.False(t, ctrl.isAppInAllowedNamespace(app))
 	})
 }
 

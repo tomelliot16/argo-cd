@@ -144,6 +144,7 @@ type ApplicationController struct {
 	clusterSharding               sharding.ClusterShardingCache
 	projByNameCache               sync.Map
 	applicationNamespaces         []string
+	allowedNamespaces             []string
 	ignoreNormalizerOpts          normalizers.IgnoreNormalizerOpts
 
 	// dynamicClusterDistributionEnabled if disabled deploymentInformer is never initialized
@@ -179,6 +180,7 @@ func NewApplicationController(
 	persistResourceHealth bool,
 	clusterSharding sharding.ClusterShardingCache,
 	applicationNamespaces []string,
+	allowedNamespaces []string,
 	rateLimiterConfig *ratelimiter.AppControllerRateLimiterConfig,
 	serverSideDiff bool,
 	dynamicClusterDistributionEnabled bool,
@@ -218,6 +220,7 @@ func NewApplicationController(
 		clusterSharding:                   clusterSharding,
 		projByNameCache:                   sync.Map{},
 		applicationNamespaces:             applicationNamespaces,
+		allowedNamespaces:                 allowedNamespaces,
 		dynamicClusterDistributionEnabled: dynamicClusterDistributionEnabled,
 		ignoreNormalizerOpts:              ignoreNormalizerOpts,
 		metricsClusterLabels:              metricsClusterLabels,
@@ -2266,6 +2269,16 @@ func (ctrl *ApplicationController) isAppNamespaceAllowed(app *appv1.Application)
 	return app.Namespace == ctrl.namespace || glob.MatchStringInList(ctrl.applicationNamespaces, app.Namespace, glob.REGEXP)
 }
 
+// isAppInAllowedNamespace returns whether the application is in one of the
+// allowed namespaces for this controller instance. If no allowed namespaces
+// are configured, all namespaces are allowed (no namespace-based sharding).
+func (ctrl *ApplicationController) isAppInAllowedNamespace(app *appv1.Application) bool {
+	if len(ctrl.allowedNamespaces) == 0 {
+		return true
+	}
+	return glob.MatchStringInList(ctrl.allowedNamespaces, app.Namespace, glob.REGEXP)
+}
+
 func (ctrl *ApplicationController) canProcessApp(obj any) bool {
 	app, ok := obj.(*appv1.Application)
 	if !ok {
@@ -2275,6 +2288,12 @@ func (ctrl *ApplicationController) canProcessApp(obj any) bool {
 	// Only process given app if it exists in a watched namespace, or in the
 	// control plane's namespace.
 	if !ctrl.isAppNamespaceAllowed(app) {
+		return false
+	}
+
+	// If allowed namespaces are configured, only process apps in those namespaces.
+	// This enables namespace-based sharding across multiple controller instances.
+	if !ctrl.isAppInAllowedNamespace(app) {
 		return false
 	}
 
@@ -2529,7 +2548,7 @@ func (ctrl *ApplicationController) getAppList(options metav1.ListOptions) (*appv
 	}
 	newItems := []appv1.Application{}
 	for _, app := range appList.Items {
-		if ctrl.isAppNamespaceAllowed(&app) {
+		if ctrl.isAppNamespaceAllowed(&app) && ctrl.isAppInAllowedNamespace(&app) {
 			newItems = append(newItems, app)
 		}
 	}
